@@ -34,6 +34,7 @@ export default function NewPage() {
   const [ocrUsed, setOcrUsed] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
   // 画像処理（共通処理）
   const processImageFile = async (file: File) => {
@@ -295,12 +296,16 @@ export default function NewPage() {
                   <img
                     src={preview}
                     alt={`プレビュー ${index + 1}`}
-                    className="w-full h-auto rounded-lg border border-gray-300"
+                    onClick={() => setSelectedImageIndex(index)}
+                    className="w-full h-auto rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemoveImage(index)}
-                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 hover:bg-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveImage(index);
+                    }}
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 hover:bg-red-700 z-10"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -410,6 +415,34 @@ export default function NewPage() {
           </button>
         </div>
       </div>
+
+      {/* 画像拡大モーダル */}
+      {selectedImageIndex !== null && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedImageIndex(null)}
+        >
+          <div className="relative max-w-full max-h-full">
+            <img
+              src={imagePreviews[selectedImageIndex]}
+              alt={`拡大表示 ${selectedImageIndex + 1}`}
+              className="max-w-full max-h-[90vh] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setSelectedImageIndex(null)}
+              className="absolute top-4 right-4 bg-white text-gray-900 rounded-full p-3 hover:bg-gray-200 shadow-lg"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
+              {selectedImageIndex + 1} / {imagePreviews.length}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
