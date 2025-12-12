@@ -152,9 +152,31 @@ export default function NewPage() {
 
       alert('保存しました（クラウドに同期中...）');
       router.push('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('[New] 保存エラー:', error);
-      alert('保存に失敗しました');
+
+      // IndexedDB ConstraintError の場合
+      if (error.name === 'ConstraintError') {
+        const shouldReset = window.confirm(
+          'データベースエラーが発生しました。\n' +
+          'データベースをリセットして再試行しますか？\n\n' +
+          '※ 既存のデータは削除されます'
+        );
+
+        if (shouldReset) {
+          try {
+            // IndexedDBを削除して再起動
+            await indexedDB.deleteDatabase('ShippingEvidenceDB');
+            alert('データベースをリセットしました。ページをリロードします。');
+            window.location.reload();
+          } catch (resetError) {
+            console.error('[New] リセットエラー:', resetError);
+            alert('リセットに失敗しました。手動でリロードしてください。');
+          }
+        }
+      } else {
+        alert(`保存に失敗しました: ${error.message || '不明なエラー'}`);
+      }
     } finally {
       setIsProcessing(false);
     }
