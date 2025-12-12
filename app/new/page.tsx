@@ -16,7 +16,7 @@ import { performLocalOCR } from '@/lib/localOcr';
 import { uploadImageToStorage } from '@/lib/storage';
 import {
   isFirebaseConfigured,
-  signInAnonymouslyIfNeeded,
+  signInWithGoogle,
   getCurrentUserId,
 } from '@/lib/firebase';
 
@@ -143,11 +143,11 @@ export default function NewPage() {
     setIsProcessing(true);
 
     try {
-      // Step 1: 匿名認証
-      console.log('[New] 匿名認証開始...');
-      const isAuthenticated = await signInAnonymouslyIfNeeded();
+      // Step 1: Googleログイン
+      console.log('[New] Googleログイン開始...');
+      const isAuthenticated = await signInWithGoogle();
       if (!isAuthenticated) {
-        throw new Error('認証に失敗しました');
+        throw new Error('Googleログインに失敗しました');
       }
 
       const userId = getCurrentUserId();
@@ -155,7 +155,7 @@ export default function NewPage() {
         throw new Error('ユーザーIDを取得できませんでした');
       }
 
-      console.log('[New] 認証成功:', userId);
+      console.log('[New] ログイン成功:', userId);
 
       // Step 2: Storageにアップロード
       console.log('[New] 画像アップロード開始...');

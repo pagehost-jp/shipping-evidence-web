@@ -9,7 +9,14 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
-import { getAuth, Auth, signInAnonymously } from 'firebase/auth';
+import {
+  getAuth,
+  Auth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  User,
+} from 'firebase/auth';
 import { getFirestore as getFirestoreSDK, Firestore } from 'firebase/firestore';
 
 // ────────────────────────────
@@ -100,9 +107,9 @@ export function getFirestore(): Firestore | null {
 }
 
 /**
- * 匿名認証（必要に応じて）
+ * Googleログイン（ポップアップ）
  */
-export async function signInAnonymouslyIfNeeded(): Promise<boolean> {
+export async function signInWithGoogle(): Promise<boolean> {
   try {
     const authInstance = getFirebaseAuth();
     if (!authInstance) {
@@ -111,17 +118,46 @@ export async function signInAnonymouslyIfNeeded(): Promise<boolean> {
 
     // 既にサインイン済みならスキップ
     if (authInstance.currentUser) {
+      console.log('[Firebase] 既にログイン済み:', authInstance.currentUser.email);
       return true;
     }
 
-    // 匿名サインイン
-    await signInAnonymously(authInstance);
-    console.log('[Firebase] 匿名認証成功:', authInstance.currentUser?.uid);
+    // Googleログイン
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(authInstance, provider);
+    console.log('[Firebase] Googleログイン成功:', result.user.email);
     return true;
-  } catch (error) {
-    console.error('[Firebase] 匿名認証エラー:', error);
+  } catch (error: any) {
+    console.error('[Firebase] Googleログインエラー:', error);
     return false;
   }
+}
+
+/**
+ * ログアウト
+ */
+export async function signOut(): Promise<void> {
+  try {
+    const authInstance = getFirebaseAuth();
+    if (!authInstance) {
+      return;
+    }
+    await authInstance.signOut();
+    console.log('[Firebase] ログアウト成功');
+  } catch (error) {
+    console.error('[Firebase] ログアウトエラー:', error);
+  }
+}
+
+/**
+ * 認証状態の監視
+ */
+export function onAuthStateChange(callback: (user: User | null) => void): () => void {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) {
+    return () => {};
+  }
+  return onAuthStateChanged(authInstance, callback);
 }
 
 /**
