@@ -181,7 +181,27 @@ export default function HomePage() {
       {/* ヘッダー */}
       <div className="bg-white shadow">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">📦 発送管理</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">📦 発送管理</h1>
+            {/* ログイン状態アイコン */}
+            <div className="flex items-center gap-2">
+              {isLoggedIn ? (
+                <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-full">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-semibold">ログイン済み</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-semibold">未ログイン</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
