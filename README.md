@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📦 Shipping Evidence Web
 
-## Getting Started
+**Amazon自己発送 証跡記録Webアプリ（PWA）**
 
-First, run the development server:
+外注さん・納品スタッフがブラウザで使える証跡記録システム。URL共有するだけで、誰でもすぐに使える。
+
+## 主な機能
+
+- 📸 **証跡写真の記録**: 伝票番号とシリアル番号を同一写真で撮影・保存
+- 🔍 **検索機能**: 伝票番号検索、日付フィルタ（今日/今週/今月）
+- ✏️ **編集・削除**: 記録の修正や削除が可能
+- 💾 **バックアップ**: JSON/CSV形式でワンタップエクスポート
+- 📱 **ブラウザで動作**: インストール不要、URL共有だけで使える
+- 🔒 **Local-first**: IndexedDBに保存、オフラインでも動作
+
+## 技術スタック
+
+- **Next.js 16** (App Router)
+- **TypeScript**
+- **Tailwind CSS**
+- **Dexie** (IndexedDB wrapper)
+- **PWA対応** (Progressive Web App)
+
+## セットアップ
 
 ```bash
+# 依存関係のインストール
+npm install
+
+# 開発サーバーの起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 使い方
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **新規作成**: トップページの「＋ 新規作成」ボタンから証跡を記録
+2. **写真撮影**: 伝票番号とシリアル番号が同一写真に写るように撮影
+3. **情報入力**: 発送日、伝票番号、メモを入力して保存
+4. **検索**: トップページで伝票番号や日付で絞り込み
+5. **バックアップ**: 設定画面からJSON/CSV形式でエクスポート
 
-## Learn More
+## プロジェクト構造
 
-To learn more about Next.js, take a look at the following resources:
+```
+shipping-evidence-web/
+├── app/                    # Next.js App Router
+│   ├── page.tsx           # ホーム画面（一覧・検索）
+│   ├── new/               # 新規作成画面
+│   ├── detail/[id]/       # 詳細・編集・削除画面
+│   └── settings/          # 設定画面（エクスポート）
+├── lib/                   # ビジネスロジック
+│   ├── db.ts             # Dexie (IndexedDB) セットアップ
+│   ├── database.ts       # CRUD操作
+│   ├── exportUtils.ts    # エクスポート機能
+│   └── types.ts          # TypeScript型定義
+└── components/           # 共通コンポーネント
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 設計思想
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Local-first アーキテクチャ
 
-## Deploy on Vercel
+- **IndexedDB**に全データを保存（高速・オフライン対応）
+- **エクスポート機能**でいつでもバックアップ可能
+- 将来的にFirestore同期を追加予定（Phase 2）
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 安全設計
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 伝票番号は必須項目（空では保存不可）
+- 画像も必須（証跡として重要）
+- OCRは将来追加予定（差し込み口あり）
+
+## デプロイ
+
+Vercelへのデプロイが推奨されます：
+
+```bash
+npm run build
+```
+
+## ライセンス
+
+MIT
+
+## 開発者
+
+- **GitHub**: pagehost-jp
+- **Email**: akyfrh0406@gmail.com
