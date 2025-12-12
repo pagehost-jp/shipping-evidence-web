@@ -13,7 +13,7 @@ import {
   getDownloadURL,
   UploadTask,
 } from 'firebase/storage';
-import { getFirebaseStorage, signInAnonymouslyIfNeeded } from './firebase';
+import { getFirebaseStorage } from './firebase';
 
 export interface UploadProgress {
   progress: number; // 0-100
@@ -43,16 +43,6 @@ export async function uploadImageToStorage(
       return {
         success: false,
         error: 'Firebase Storage is not configured',
-      };
-    }
-
-    // 匿名認証（必要に応じて）
-    const isAuthenticated = await signInAnonymouslyIfNeeded();
-    if (!isAuthenticated) {
-      console.warn('[Storage] 認証に失敗しました');
-      return {
-        success: false,
-        error: 'Authentication failed',
       };
     }
 

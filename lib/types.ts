@@ -21,8 +21,8 @@ export interface ShippingRecord {
   shipDate: string;           // 発送日（YYYY-MM-DD形式）
   trackingNumber: string;     // 伝票番号（必須）
   note?: string;              // 任意メモ
-  imageUrl: string;           // 画像URL（Firebase Storage・必須）
-  storagePath: string;        // Storage保存パス（削除時に使用）
+  imageUrls: string[];        // 画像URL（Firebase Storage・最大3枚）
+  storagePaths: string[];     // Storage保存パス（削除時に使用）
 }
 
 /**
@@ -32,8 +32,8 @@ export interface NewShippingRecord {
   shipDate: string;
   trackingNumber: string;
   note?: string;
-  imageUrl: string;           // 必須
-  storagePath: string;        // 必須
+  imageUrls: string[];        // 最大3枚
+  storagePaths: string[];     // 最大3枚
   createdBy: string;          // 必須
 }
 

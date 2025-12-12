@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAllRecords } from '@/lib/database';
+import { getAllRecords } from '@/lib/firestore';
 import { exportToJSON, exportToCSV } from '@/lib/exportUtils';
 import { ShippingRecord } from '@/lib/types';
 
@@ -137,10 +137,10 @@ export default function SettingsPage() {
             </div>
             <div className="flex justify-between">
               <span>保存場所:</span>
-              <span className="font-semibold">ブラウザ内（IndexedDB）</span>
+              <span className="font-semibold">Firebase Cloud</span>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              ※ データはこのブラウザのみに保存されます。ブラウザのデータを削除すると失われますので、定期的にバックアップしてください。
+              ※ データはクラウドに保存され、全端末で同期されます。
             </p>
           </div>
         </div>

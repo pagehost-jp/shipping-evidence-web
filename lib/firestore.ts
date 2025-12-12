@@ -4,7 +4,7 @@
  * 【設計】
  * - 全データはFirestoreに保存
  * - IndexedDBは使用しない
- * - imageUrlは必須（Storage先行アップロード）
+ * - imageUrlsは必須（Storage先行アップロード・最大3枚）
  */
 
 import {
@@ -54,8 +54,8 @@ export async function createRecord(
       shipDate: record.shipDate,
       trackingNumber: record.trackingNumber,
       note: record.note || '',
-      imageUrl: record.imageUrl,
-      storagePath: record.storagePath,
+      imageUrls: record.imageUrls,
+      storagePaths: record.storagePaths,
     });
 
     console.log('[Firestore] レコード作成成功:', docRef.id);
@@ -165,12 +165,7 @@ export async function searchRecords(filter: {
     const firestore = getFirestoreInstance();
     let q = query(collection(firestore, 'shippingRecords'));
 
-    // 伝票番号検索（部分一致はFirestoreでは難しいので、完全一致）
-    if (filter.trackingNumber) {
-      q = query(q, where('trackingNumber', '==', filter.trackingNumber));
-    }
-
-    // 日付範囲
+    // 日付範囲検索のみFirestoreで実行
     if (filter.dateFrom) {
       q = query(q, where('shipDate', '>=', filter.dateFrom));
     }
@@ -178,17 +173,30 @@ export async function searchRecords(filter: {
       q = query(q, where('shipDate', '<=', filter.dateTo));
     }
 
-    // 日付降順
-    q = query(q, orderBy('shipDate', 'desc'));
-
     const querySnapshot = await getDocs(q);
-    const records: ShippingRecord[] = [];
+    let records: ShippingRecord[] = [];
 
     querySnapshot.forEach((doc) => {
       records.push({
         id: doc.id,
         ...doc.data(),
       } as ShippingRecord);
+    });
+
+    // 伝票番号検索（クライアント側で部分一致）
+    if (filter.trackingNumber) {
+      const searchQuery = filter.trackingNumber.replace(/[-\s]/g, ''); // ハイフンとスペース削除
+      records = records.filter((record) => {
+        const trackingNumber = record.trackingNumber.replace(/[-\s]/g, ''); // ハイフンとスペース削除
+        return trackingNumber.includes(searchQuery);
+      });
+    }
+
+    // クライアント側でソート（発送日降順）
+    records.sort((a, b) => {
+      const dateA = new Date(a.shipDate).getTime();
+      const dateB = new Date(b.shipDate).getTime();
+      return dateB - dateA; // 降順
     });
 
     console.log(`[Firestore] 検索結果: ${records.length}件`);

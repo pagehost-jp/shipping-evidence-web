@@ -14,20 +14,60 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAllRecords, searchRecords } from '@/lib/firestore';
 import { ShippingRecord } from '@/lib/types';
+import {
+  isFirebaseConfigured,
+  signInWithGoogle,
+  onAuthStateChange,
+} from '@/lib/firebase';
 
 export default function HomePage() {
   const router = useRouter();
 
   const [records, setRecords] = useState<ShippingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // 検索フィルタ
   const [searchQuery, setSearchQuery] = useState('');
   const [datePreset, setDatePreset] = useState<string>('ALL');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
 
-  // 初回読み込み
+  // 初回：Googleログイン
   useEffect(() => {
-    loadRecords();
+    const checkAuth = async () => {
+      if (!isFirebaseConfigured()) {
+        alert(
+          'Firebaseが設定されていません。\n' +
+          '.env.localファイルでFirebase環境変数を設定してください。'
+        );
+        setIsAuthChecking(false);
+        return;
+      }
+
+      // ログイン状態を監視
+      const unsubscribe = onAuthStateChange(async (user) => {
+        if (!user) {
+          // 未ログイン → Googleログイン実行
+          console.log('[Home] Googleログイン開始...');
+          const isAuthenticated = await signInWithGoogle();
+          if (!isAuthenticated) {
+            alert('Googleログインに失敗しました。\nアプリを使用するにはログインが必要です。');
+            setIsAuthChecking(false);
+            return;
+          }
+        }
+
+        // ログイン成功 → レコード読み込み
+        console.log('[Home] ログイン済み:', user?.email);
+        setIsAuthChecking(false);
+        loadRecords();
+      });
+
+      return () => unsubscribe();
+    };
+
+    checkAuth();
   }, []);
 
   const loadRecords = async () => {
@@ -56,7 +96,11 @@ export default function HomePage() {
       }
 
       // 日付フィルタ
-      if (datePreset !== 'ALL') {
+      if (datePreset === 'CUSTOM') {
+        // カスタム日付範囲
+        if (customDateFrom) filter.dateFrom = customDateFrom;
+        if (customDateTo) filter.dateTo = customDateTo;
+      } else if (datePreset !== 'ALL') {
         const range = getDateRangeFromPreset(datePreset);
         filter.dateFrom = range.dateFrom;
         filter.dateTo = range.dateTo;
@@ -118,6 +162,8 @@ export default function HomePage() {
   const handleReset = () => {
     setSearchQuery('');
     setDatePreset('ALL');
+    setCustomDateFrom('');
+    setCustomDateTo('');
     loadRecords();
   };
 
@@ -125,6 +171,22 @@ export default function HomePage() {
   const handleRecordClick = (id: number) => {
     router.push(`/detail/${id}`);
   };
+
+  // ログイン確認中
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl font-semibold text-gray-700 mb-2">
+            認証確認中...
+          </div>
+          <div className="text-sm text-gray-500">
+            Googleログインを準備しています
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -167,8 +229,37 @@ export default function HomePage() {
                 <option value="TODAY">今日</option>
                 <option value="THIS_WEEK">今週</option>
                 <option value="THIS_MONTH">今月</option>
+                <option value="CUSTOM">カレンダーで選択</option>
               </select>
             </div>
+
+            {/* カスタム日付範囲 */}
+            {datePreset === 'CUSTOM' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    開始日
+                  </label>
+                  <input
+                    type="date"
+                    value={customDateFrom}
+                    onChange={(e) => setCustomDateFrom(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    終了日
+                  </label>
+                  <input
+                    type="date"
+                    value={customDateTo}
+                    onChange={(e) => setCustomDateTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* 検索ボタン */}
             <div className="flex gap-2">
@@ -215,13 +306,18 @@ export default function HomePage() {
               >
                 <div className="flex items-start gap-4">
                   {/* サムネイル */}
-                  {record.imageUrl && (
-                    <div className="flex-shrink-0">
+                  {record.imageUrls && record.imageUrls.length > 0 && (
+                    <div className="flex-shrink-0 relative">
                       <img
-                        src={record.imageUrl}
+                        src={record.imageUrls[0]}
                         alt="証跡写真"
                         className="w-20 h-20 object-cover rounded"
                       />
+                      {record.imageUrls.length > 1 && (
+                        <div className="absolute bottom-0 right-0 bg-black bg-opacity-70 text-white text-xs px-1.5 py-0.5 rounded-tl">
+                          +{record.imageUrls.length - 1}
+                        </div>
+                      )}
                     </div>
                   )}
 

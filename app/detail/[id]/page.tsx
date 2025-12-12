@@ -159,13 +159,22 @@ export default function DetailPage() {
         </div>
 
         {/* 画像表示 */}
-        {record.imageUrl && (
+        {record.imageUrls && record.imageUrls.length > 0 && (
           <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <img
-              src={record.imageUrl}
-              alt="証跡写真"
-              className="w-full h-auto rounded"
-            />
+            <div className="space-y-4">
+              {record.imageUrls.map((imageUrl, index) => (
+                <div key={index}>
+                  <div className="text-sm text-gray-600 mb-2">
+                    画像 {index + 1} / {record.imageUrls.length}
+                  </div>
+                  <img
+                    src={imageUrl}
+                    alt={`証跡写真 ${index + 1}`}
+                    className="w-full h-auto rounded border border-gray-300"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

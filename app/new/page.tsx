@@ -16,15 +16,16 @@ import { performLocalOCR } from '@/lib/localOcr';
 import { uploadImageToStorage } from '@/lib/storage';
 import {
   isFirebaseConfigured,
-  signInWithGoogle,
   getCurrentUserId,
 } from '@/lib/firebase';
+
+const MAX_IMAGES = 3;
 
 export default function NewPage() {
   const router = useRouter();
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [shipDate, setShipDate] = useState(getTodayDate());
   const [trackingNumber, setTrackingNumber] = useState('');
   const [note, setNote] = useState('');
@@ -36,41 +37,56 @@ export default function NewPage() {
 
   // 画像処理（共通処理）
   const processImageFile = async (file: File) => {
-    setImageFile(file);
+    // 最大3枚チェック
+    if (imageFiles.length >= MAX_IMAGES) {
+      alert(`画像は最大${MAX_IMAGES}枚までです`);
+      return;
+    }
+
+    // 画像ファイル配列に追加
+    setImageFiles(prev => [...prev, file]);
 
     // プレビュー表示用
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImagePreview(reader.result as string);
+      setImagePreviews(prev => [...prev, reader.result as string]);
     };
     reader.readAsDataURL(file);
 
-    // ローカルOCR実行（Tesseract.js）
-    setIsOcrProcessing(true);
-    setOcrUsed(false);
-    setOcrProgress('OCR準備中...');
+    // ローカルOCR実行（1枚目のみ）
+    if (imageFiles.length === 0 && !trackingNumber.trim()) {
+      setIsOcrProcessing(true);
+      setOcrUsed(false);
+      setOcrProgress('OCR準備中...');
 
-    try {
-      const result = await performLocalOCR(file, (progress) => {
-        // 進捗表示
-        const percentage = Math.round(progress.progress * 100);
-        setOcrProgress(`${progress.status}: ${percentage}%`);
-      });
+      try {
+        const result = await performLocalOCR(file, (progress) => {
+          // 進捗表示
+          const percentage = Math.round(progress.progress * 100);
+          setOcrProgress(`${progress.status}: ${percentage}%`);
+        });
 
-      if (result.trackingNumberCandidate) {
-        setTrackingNumber(result.trackingNumberCandidate);
-        setOcrUsed(true);
-        console.log('[New] 伝票番号を自動入力:', result.trackingNumberCandidate);
-      } else {
-        console.log('[New] 伝票番号が見つかりませんでした');
+        if (result.trackingNumberCandidate) {
+          setTrackingNumber(result.trackingNumberCandidate);
+          setOcrUsed(true);
+          console.log('[New] 伝票番号を自動入力:', result.trackingNumberCandidate);
+        } else {
+          console.log('[New] 伝票番号が見つかりませんでした');
+        }
+      } catch (error) {
+        console.error('[New] OCRエラー:', error);
+        // エラーでも処理は続行（手入力へ）
+      } finally {
+        setIsOcrProcessing(false);
+        setOcrProgress('');
       }
-    } catch (error) {
-      console.error('[New] OCRエラー:', error);
-      // エラーでも処理は続行（手入力へ）
-    } finally {
-      setIsOcrProcessing(false);
-      setOcrProgress('');
     }
+  };
+
+  // 画像削除
+  const handleRemoveImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   // 画像選択（ファイル入力）
@@ -116,8 +132,8 @@ export default function NewPage() {
 
   // 保存（Cloud-first）
   const handleSave = async () => {
-    if (!imageFile) {
-      alert('画像を選択してください');
+    if (imageFiles.length === 0) {
+      alert('画像を最低1枚選択してください');
       return;
     }
 
@@ -143,38 +159,40 @@ export default function NewPage() {
     setIsProcessing(true);
 
     try {
-      // Step 1: Googleログイン
-      console.log('[New] Googleログイン開始...');
-      const isAuthenticated = await signInWithGoogle();
-      if (!isAuthenticated) {
-        throw new Error('Googleログインに失敗しました');
-      }
-
+      // ユーザーID取得（既にログイン済み）
       const userId = getCurrentUserId();
       if (!userId) {
-        throw new Error('ユーザーIDを取得できませんでした');
+        throw new Error('ログインしていません。ホーム画面に戻ってログインしてください。');
       }
 
-      console.log('[New] ログイン成功:', userId);
+      console.log('[New] ユーザーID:', userId);
 
-      // Step 2: Storageにアップロード
-      console.log('[New] 画像アップロード開始...');
-      const uploadResult = await uploadImageToStorage(imageFile);
+      // Step 1: 全画像をStorageにアップロード
+      console.log(`[New] ${imageFiles.length}枚の画像アップロード開始...`);
+      const uploadedUrls: string[] = [];
+      const uploadedPaths: string[] = [];
 
-      if (!uploadResult.success || !uploadResult.imageUrl) {
-        throw new Error(uploadResult.error || '画像のアップロードに失敗しました');
+      for (let i = 0; i < imageFiles.length; i++) {
+        console.log(`[New] 画像 ${i + 1}/${imageFiles.length} アップロード中...`);
+        const uploadResult = await uploadImageToStorage(imageFiles[i]);
+
+        if (!uploadResult.success || !uploadResult.imageUrl) {
+          throw new Error(uploadResult.error || `画像${i + 1}のアップロードに失敗しました`);
+        }
+
+        uploadedUrls.push(uploadResult.imageUrl);
+        uploadedPaths.push(uploadResult.storagePath!);
+        console.log(`[New] 画像 ${i + 1} アップロード成功:`, uploadResult.imageUrl);
       }
 
-      console.log('[New] 画像アップロード成功:', uploadResult.imageUrl);
-
-      // Step 3: Firestoreに保存
+      // Step 2: Firestoreに保存
       console.log('[New] Firestoreに保存開始...');
       const recordId = await createRecord({
         shipDate: shipDate.trim(),
         trackingNumber: trackingNumber.trim(),
         note: note.trim(),
-        imageUrl: uploadResult.imageUrl,
-        storagePath: uploadResult.storagePath!,
+        imageUrls: uploadedUrls,
+        storagePaths: uploadedPaths,
         createdBy: userId,
       });
 
@@ -191,7 +209,7 @@ export default function NewPage() {
   };
 
   const canSave =
-    imageFile && shipDate.trim() && trackingNumber.trim() && !isProcessing;
+    imageFiles.length > 0 && shipDate.trim() && trackingNumber.trim() && !isProcessing;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -201,68 +219,98 @@ export default function NewPage() {
         {/* 画像アップロード */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            証跡写真 <span className="text-red-500">*</span>
+            証跡写真（最大{MAX_IMAGES}枚） <span className="text-red-500">*</span>
+            <span className="ml-2 text-xs text-gray-500">
+              {imageFiles.length} / {MAX_IMAGES}
+            </span>
           </label>
 
           {/* ドラッグ&ドロップエリア */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-              isDragging
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-300 bg-gray-50'
-            }`}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleImageChange}
-              className="hidden"
-              id="file-input"
-            />
-
-            <label
-              htmlFor="file-input"
-              className="cursor-pointer block"
+          {imageFiles.length < MAX_IMAGES && (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-300 bg-gray-50'
+              }`}
             >
-              <div className="space-y-2">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  stroke="currentColor"
-                  fill="none"
-                  viewBox="0 0 48 48"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <div className="text-sm text-gray-600">
-                  <span className="font-semibold text-blue-600 hover:text-blue-500">
-                    クリックして選択
-                  </span>
-                  <span className="hidden sm:inline"> または ドラッグ&ドロップ</span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  PNG, JPG, HEIC など
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {imagePreview && (
-            <div className="mt-4">
-              <img
-                src={imagePreview}
-                alt="プレビュー"
-                className="max-w-full h-auto rounded-lg"
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageChange}
+                className="hidden"
+                id="file-input"
               />
+
+              <label
+                htmlFor="file-input"
+                className="cursor-pointer block"
+              >
+                <div className="space-y-2">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 48 48"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold text-blue-600 hover:text-blue-500">
+                      クリックして選択
+                    </span>
+                    <span className="hidden sm:inline"> または ドラッグ&ドロップ</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, HEIC など
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {imageFiles.length >= MAX_IMAGES && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 text-center bg-gray-100">
+              <p className="text-sm text-gray-600">
+                最大{MAX_IMAGES}枚まで登録できます
+              </p>
+            </div>
+          )}
+
+          {/* 画像プレビュー（複数対応） */}
+          {imagePreviews.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={preview}
+                    alt={`プレビュー ${index + 1}`}
+                    className="w-full h-auto rounded-lg border border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(index)}
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 hover:bg-red-700"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    {index + 1} / {imagePreviews.length}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
