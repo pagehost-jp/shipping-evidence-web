@@ -12,7 +12,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createRecord } from '@/lib/database';
-import { performOCR } from '@/lib/ocr';
 
 export default function NewPage() {
   const router = useRouter();
@@ -40,24 +39,34 @@ export default function NewPage() {
     };
     reader.readAsDataURL(file);
 
-    // OCR処理（自動入力）
+    // OCR処理（サーバーサイドAPI経由）
     setIsOcrProcessing(true);
     setOcrUsed(false);
     try {
-      const ocrResult = await performOCR(file);
+      const formData = new FormData();
+      formData.append('image', file);
 
-      if (ocrResult.trackingNumberCandidate) {
-        setTrackingNumber(ocrResult.trackingNumberCandidate);
-        setOcrUsed(true);
-        console.log('[New] OCR候補を自動入力:', ocrResult.trackingNumberCandidate);
-      }
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (ocrResult.dateCandidate) {
-        // 日付候補があれば shipDate にも設定（任意）
-        setShipDate(ocrResult.dateCandidate);
+      if (response.ok) {
+        const result = await response.json();
+
+        if (result.success && result.trackingNumberCandidate) {
+          setTrackingNumber(result.trackingNumberCandidate);
+          setOcrUsed(true);
+          console.log('[New] OCR候補を自動入力:', result.trackingNumberCandidate);
+        } else {
+          console.log('[New] OCR候補が見つかりませんでした');
+        }
+      } else {
+        console.warn('[New] OCR APIエラー:', response.status);
       }
     } catch (error) {
       console.error('[New] OCRエラー:', error);
+      // エラーでも処理は続行（手入力へ）
     } finally {
       setIsOcrProcessing(false);
     }

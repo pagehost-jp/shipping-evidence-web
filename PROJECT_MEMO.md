@@ -39,17 +39,21 @@ shipping-evidence-web/
 ├── app/
 │   ├── page.tsx              # Home（一覧＋検索）✅
 │   ├── new/
-│   │   └── page.tsx          # 新規作成（アップロード→入力）✅
+│   │   └── page.tsx          # 新規作成（アップロード→入力＋OCR）✅
 │   ├── detail/
 │   │   └── [id]/
 │   │       └── page.tsx      # 詳細（編集・削除）✅
 │   ├── settings/
 │   │   └── page.tsx          # 設定（注意書き＋エクスポート）✅
+│   ├── api/
+│   │   └── ocr/
+│   │       └── route.ts      # OCR APIルート（サーバーサイド）✅
 │   └── layout.tsx
 ├── lib/
 │   ├── db.ts                 # Dexie setup ✅
 │   ├── database.ts           # CRUD operations ✅
 │   ├── exportUtils.ts        # JSON/CSV export ✅
+│   ├── gemini.ts             # Gemini API共通ヘルパー ✅
 │   └── types.ts              # TypeScript types ✅
 ├── components/
 │   └── ...                   # 共通コンポーネント（今後追加予定）
@@ -95,9 +99,13 @@ shipping-evidence-web/
 このプロジェクトでは、**「外部APIは必ず壊れる前提」**で設計しています。
 
 ### OCRの位置づけ
-- **OCRは「候補を出すだけ」**
-- まずはnoop実装（将来Gemini/Cloud Vision等に差し替え）
+- **OCRは「候補を出すだけ」** ← 実装済み！✅
+- Gemini Vision APIでサーバーサイド実装
+- APIキーはブラウザに露出しない（セキュア）
 - OCRが無くても必ず保存できる設計
+- モデル名・エンドポイントは `lib/gemini.ts` で一元管理
+- プライマリ失敗時はフォールバックモデルに自動切り替え
+- タイムアウト・リトライ・エラー分類ログ完備
 
 ### データの安全性
 - **Local-first**: IndexedDBに全データ保存
@@ -186,6 +194,12 @@ npm start
 - Detail画面実装（app/detail/[id]/page.tsx）
 - Settings画面実装（app/settings/page.tsx）
 - **🎉 MVP完成！**
+- OCR自動入力機能実装（サーバーサイドAPI経由）
+  - lib/gemini.ts: 外部API壊れる前提の共通ヘルパー
+  - app/api/ocr/route.ts: サーバーサイドOCR APIルート
+  - Gemini Vision APIで伝票番号自動抽出
+  - APIキーはブラウザに露出しない（セキュア）
+  - フォールバック・タイムアウト・エラー分類ログ完備
 
 ---
 

@@ -44,9 +44,24 @@ npm run dev
 
 1. [Google AI Studio](https://aistudio.google.com/app/apikey) でAPIキーを取得
 2. `.env.local` ファイルを作成
-3. `NEXT_PUBLIC_GEMINI_API_KEY=your_api_key` を設定
+3. `GEMINI_API_KEY=your_api_key` を設定
 
-**注意**: OCRはオプション機能です。APIキーがなくても手動入力で使用できます。
+```bash
+# .env.local
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+**重要事項:**
+- APIキーはサーバーサイド専用（`NEXT_PUBLIC_` なし）
+- ブラウザには露出されません（セキュア）
+- OCRはオプション機能です。APIキーがなくても手動入力で使用できます
+- 失敗しても無言でスキップされ、手入力できます
+
+**外部API壊れる前提の設計:**
+- モデル名・エンドポイントは `lib/gemini.ts` で一元管理
+- プライマリモデル失敗時はフォールバックモデルに自動切り替え
+- タイムアウト・リトライ機能付き
+- エラー分類ログで原因特定が容易
 
 ## 使い方
 
