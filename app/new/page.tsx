@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createRecord } from '@/lib/database';
+import { performLocalOCR } from '@/lib/localOcr';
 
 export default function NewPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function NewPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [ocrUsed, setOcrUsed] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<string>('');
 
   // 画像選択
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,36 +41,31 @@ export default function NewPage() {
     };
     reader.readAsDataURL(file);
 
-    // OCR処理（サーバーサイドAPI経由）
+    // ローカルOCR実行（Tesseract.js）
     setIsOcrProcessing(true);
     setOcrUsed(false);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
+    setOcrProgress('OCR準備中...');
 
-      const response = await fetch('/api/ocr', {
-        method: 'POST',
-        body: formData,
+    try {
+      const result = await performLocalOCR(file, (progress) => {
+        // 進捗表示
+        const percentage = Math.round(progress.progress * 100);
+        setOcrProgress(`${progress.status}: ${percentage}%`);
       });
 
-      if (response.ok) {
-        const result = await response.json();
-
-        if (result.success && result.trackingNumberCandidate) {
-          setTrackingNumber(result.trackingNumberCandidate);
-          setOcrUsed(true);
-          console.log('[New] OCR候補を自動入力:', result.trackingNumberCandidate);
-        } else {
-          console.log('[New] OCR候補が見つかりませんでした');
-        }
+      if (result.trackingNumberCandidate) {
+        setTrackingNumber(result.trackingNumberCandidate);
+        setOcrUsed(true);
+        console.log('[New] 伝票番号を自動入力:', result.trackingNumberCandidate);
       } else {
-        console.warn('[New] OCR APIエラー:', response.status);
+        console.log('[New] 伝票番号が見つかりませんでした');
       }
     } catch (error) {
       console.error('[New] OCRエラー:', error);
       // エラーでも処理は続行（手入力へ）
     } finally {
       setIsOcrProcessing(false);
+      setOcrProgress('');
     }
   };
 
@@ -183,7 +180,9 @@ export default function NewPage() {
                   伝票番号 <span className="text-red-500">*</span>
                 </label>
                 {isOcrProcessing && (
-                  <span className="text-xs text-blue-600">OCR処理中...</span>
+                  <span className="text-xs text-blue-600 animate-pulse">
+                    {ocrProgress || 'OCR処理中...'}
+                  </span>
                 )}
                 {ocrUsed && !isOcrProcessing && (
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
