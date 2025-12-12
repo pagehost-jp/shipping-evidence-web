@@ -241,7 +241,6 @@ export default function NewPage() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleImageChange}
                 className="hidden"
                 id="file-input"

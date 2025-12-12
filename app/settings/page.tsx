@@ -14,17 +14,42 @@ import { useRouter } from 'next/navigation';
 import { getAllRecords } from '@/lib/firestore';
 import { exportToJSON, exportToCSV } from '@/lib/exportUtils';
 import { ShippingRecord } from '@/lib/types';
+import {
+  onAuthStateChange,
+  signInWithGoogle,
+  signOut,
+  getCurrentUserId,
+} from '@/lib/firebase';
 
 export default function SettingsPage() {
   const router = useRouter();
 
   const [recordCount, setRecordCount] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // ログイン状態監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((user) => {
+      if (user) {
+        setIsLoggedIn(true);
+        setUserEmail(user.email);
+      } else {
+        setIsLoggedIn(false);
+        setUserEmail(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // 初回読み込み
   useEffect(() => {
-    loadRecordCount();
-  }, []);
+    if (isLoggedIn) {
+      loadRecordCount();
+    }
+  }, [isLoggedIn]);
 
   const loadRecordCount = async () => {
     try {
@@ -123,6 +148,48 @@ export default function SettingsPage() {
               </ul>
             </div>
           </div>
+        </div>
+
+        {/* ログイン・ログアウト */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            🔐 ログイン
+          </h2>
+          {isLoggedIn ? (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-700">
+                <span className="font-semibold">ログイン中:</span> {userEmail}
+              </div>
+              <button
+                onClick={async () => {
+                  await signOut();
+                  alert('ログアウトしました');
+                }}
+                className="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700"
+              >
+                ログアウト
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">
+                アプリを使用するにはGoogleアカウントでログインしてください。
+              </p>
+              <button
+                onClick={async () => {
+                  const success = await signInWithGoogle();
+                  if (success) {
+                    alert('ログインしました');
+                  } else {
+                    alert('ログインに失敗しました');
+                  }
+                }}
+                className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
+              >
+                Googleでログイン
+              </button>
+            </div>
+          )}
         </div>
 
         {/* データ情報 */}

@@ -18,6 +18,7 @@ import {
   isFirebaseConfigured,
   signInWithGoogle,
   onAuthStateChange,
+  getCurrentUserId,
 } from '@/lib/firebase';
 
 export default function HomePage() {
@@ -26,6 +27,7 @@ export default function HomePage() {
   const [records, setRecords] = useState<ShippingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // 検索フィルタ
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,34 +35,24 @@ export default function HomePage() {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
-  // 初回：Googleログイン
+  // ログイン状態監視（自動ログインなし）
   useEffect(() => {
     if (!isFirebaseConfigured()) {
-      alert(
-        'Firebaseが設定されていません。\n' +
-        '.env.localファイルでFirebase環境変数を設定してください。'
-      );
       setIsAuthChecking(false);
       return;
     }
 
     // ログイン状態を監視
-    const unsubscribe = onAuthStateChange(async (user) => {
-      if (!user) {
-        // 未ログイン → Googleログイン実行
-        console.log('[Home] Googleログイン開始...');
-        const isAuthenticated = await signInWithGoogle();
-        if (!isAuthenticated) {
-          alert('Googleログインに失敗しました。\nアプリを使用するにはログインが必要です。');
-          setIsAuthChecking(false);
-          return;
-        }
-      }
-
-      // ログイン成功 → レコード読み込み
-      console.log('[Home] ログイン済み:', user?.email);
+    const unsubscribe = onAuthStateChange((user) => {
       setIsAuthChecking(false);
-      loadRecords();
+      if (user) {
+        console.log('[Home] ログイン済み:', user.email);
+        setIsLoggedIn(true);
+        loadRecords();
+      } else {
+        console.log('[Home] 未ログイン');
+        setIsLoggedIn(false);
+      }
     });
 
     return () => unsubscribe();
@@ -261,13 +253,23 @@ export default function HomePage() {
             <div className="flex gap-2">
               <button
                 onClick={handleSearch}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
+                disabled={!isLoggedIn}
+                className={`flex-1 py-2 px-4 font-semibold rounded-md ${
+                  isLoggedIn
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 検索
               </button>
               <button
                 onClick={handleReset}
-                className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300"
+                disabled={!isLoggedIn}
+                className={`flex-1 py-2 px-4 font-semibold rounded-md ${
+                  isLoggedIn
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 リセット
               </button>
@@ -278,10 +280,15 @@ export default function HomePage() {
         {/* 新規作成ボタン */}
         <div className="mb-6">
           <button
-            onClick={() => router.push('/new')}
-            className="w-full py-3 px-4 bg-green-600 text-white font-bold rounded-md hover:bg-green-700"
+            onClick={() => isLoggedIn && router.push('/new')}
+            disabled={!isLoggedIn}
+            className={`w-full py-3 px-4 font-bold rounded-md ${
+              isLoggedIn
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
-            ＋ 新規作成
+            {isLoggedIn ? '＋ 新規作成' : '🔒 ログインが必要です'}
           </button>
         </div>
 
