@@ -24,6 +24,11 @@ export class ShippingEvidenceDB extends Dexie {
     this.version(1).stores({
       records: '++id, createdAt, shipDate, trackingNumber, note',
     });
+
+    // バージョン2：クラウド同期フィールド追加
+    this.version(2).stores({
+      records: '++id, createdAt, shipDate, trackingNumber, note, syncStatus',
+    });
   }
 }
 

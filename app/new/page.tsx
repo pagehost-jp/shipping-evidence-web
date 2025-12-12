@@ -11,8 +11,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createRecord } from '@/lib/database';
+import { createRecord, updateRecord } from '@/lib/database';
 import { performLocalOCR } from '@/lib/localOcr';
+import { uploadImageToStorage } from '@/lib/storage';
+import { isFirebaseConfigured } from '@/lib/firebase';
 
 export default function NewPage() {
   const router = useRouter();
@@ -69,7 +71,7 @@ export default function NewPage() {
     }
   };
 
-  // 保存
+  // 保存（Local-first + バックグラウンド同期）
   const handleSave = async () => {
     if (!imageFile) {
       alert('画像を選択してください');
@@ -89,26 +91,81 @@ export default function NewPage() {
     setIsProcessing(true);
 
     try {
-      // 画像をBlobとData URLに変換
+      // Step 1: まずローカルに保存（必ず成功）
       const imageBlob = imageFile;
       const imageDataUrl = imagePreview;
 
-      // レコード作成
-      await createRecord({
+      console.log('[New] ローカルに保存開始...');
+
+      const recordId = await createRecord({
         shipDate: shipDate.trim(),
         trackingNumber: trackingNumber.trim(),
         note: note.trim(),
         imageBlob,
         imageDataUrl,
+        syncStatus: 'pending', // 未同期
       });
 
-      alert('保存しました');
+      console.log('[New] ローカル保存成功:', recordId);
+
+      // Step 2: バックグラウンドでクラウドへアップロード
+      uploadImageInBackground(recordId, imageFile);
+
+      alert('保存しました（クラウドに同期中...）');
       router.push('/');
     } catch (error) {
-      console.error('保存エラー:', error);
+      console.error('[New] 保存エラー:', error);
       alert('保存に失敗しました');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // バックグラウンドでクラウドへアップロード
+  const uploadImageInBackground = async (recordId: number, file: File) => {
+    // Firebaseが設定されていない場合はスキップ
+    if (!isFirebaseConfigured()) {
+      console.log('[New] Firebase未設定のためアップロードスキップ');
+      return;
+    }
+
+    try {
+      console.log('[New] クラウドアップロード開始...');
+
+      // syncStatus: 'uploading' に更新
+      await updateRecord(recordId, {
+        syncStatus: 'uploading',
+      });
+
+      // Firebase Storageにアップロード
+      const result = await uploadImageToStorage(file);
+
+      if (result.success && result.imageUrl) {
+        // 成功: syncStatus: 'synced' に更新
+        await updateRecord(recordId, {
+          imageUrl: result.imageUrl,
+          storagePath: result.storagePath,
+          syncStatus: 'synced',
+        });
+
+        console.log('[New] クラウド同期成功:', result.imageUrl);
+      } else {
+        // 失敗: syncStatus: 'failed' に更新
+        await updateRecord(recordId, {
+          syncStatus: 'failed',
+          syncError: result.error || 'Upload failed',
+        });
+
+        console.error('[New] クラウド同期失敗:', result.error);
+      }
+    } catch (error: any) {
+      // エラー: syncStatus: 'failed' に更新
+      await updateRecord(recordId, {
+        syncStatus: 'failed',
+        syncError: error.message || 'Unknown error',
+      });
+
+      console.error('[New] クラウド同期エラー:', error);
     }
   };
 

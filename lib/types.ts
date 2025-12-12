@@ -7,6 +7,11 @@
 // ────────────────────────────
 
 /**
+ * 同期ステータス型
+ */
+export type SyncStatus = 'pending' | 'uploading' | 'synced' | 'failed';
+
+/**
  * 発送記録レコード
  */
 export interface ShippingRecord {
@@ -15,8 +20,12 @@ export interface ShippingRecord {
   shipDate: string;           // 発送日（YYYY-MM-DD形式）
   trackingNumber: string;     // 伝票番号（必須）
   note?: string;              // 任意メモ
-  imageBlob?: Blob;           // 画像Blob（IndexedDB保存用）
-  imageDataUrl?: string;      // 画像Data URL（表示用）
+  imageBlob?: Blob;           // 画像Blob（IndexedDB保存用・Local-first）
+  imageDataUrl?: string;      // 画像Data URL（表示用・フォールバック）
+  imageUrl?: string;          // 画像URL（Firebase Storage・クラウド同期後）
+  storagePath?: string;       // Storage保存パス（削除時に使用）
+  syncStatus?: SyncStatus;    // 同期ステータス（pending/uploading/synced/failed）
+  syncError?: string;         // 同期エラーメッセージ
 }
 
 /**
@@ -28,6 +37,10 @@ export interface NewShippingRecord {
   note?: string;
   imageBlob?: Blob;
   imageDataUrl?: string;
+  imageUrl?: string;
+  storagePath?: string;
+  syncStatus?: SyncStatus;
+  syncError?: string;
 }
 
 // ────────────────────────────
@@ -79,4 +92,6 @@ export interface ExportRecord {
   trackingNumber: string;
   note?: string;
   imageDataUrl?: string;
+  imageUrl?: string; // クラウド画像URL
+  syncStatus?: SyncStatus;
 }
