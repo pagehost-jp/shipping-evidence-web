@@ -30,13 +30,18 @@ export async function createRecord(
       note: record.note || '',
       imageBlob: record.imageBlob,
       imageDataUrl: record.imageDataUrl,
+      imageUrl: record.imageUrl,
+      storagePath: record.storagePath,
+      syncStatus: record.syncStatus || 'pending',
+      syncError: record.syncError,
     });
 
     console.log('[DB] レコード作成成功:', id);
     return id;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[DB] レコード作成エラー:', error);
-    throw new Error('レコードの作成に失敗しました');
+    // 元のエラーをそのまま投げる（ConstraintErrorなど）
+    throw error;
   }
 }
 
