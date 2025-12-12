@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createRecord } from '@/lib/database';
+import { performOCR } from '@/lib/ocr';
 
 export default function NewPage() {
   const router = useRouter();
@@ -22,9 +23,11 @@ export default function NewPage() {
   const [trackingNumber, setTrackingNumber] = useState('');
   const [note, setNote] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrUsed, setOcrUsed] = useState(false);
 
   // 画像選択
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -37,8 +40,27 @@ export default function NewPage() {
     };
     reader.readAsDataURL(file);
 
-    // TODO: OCR処理（差し込み口）
-    // performOCR(file);
+    // OCR処理（自動入力）
+    setIsOcrProcessing(true);
+    setOcrUsed(false);
+    try {
+      const ocrResult = await performOCR(file);
+
+      if (ocrResult.trackingNumberCandidate) {
+        setTrackingNumber(ocrResult.trackingNumberCandidate);
+        setOcrUsed(true);
+        console.log('[New] OCR候補を自動入力:', ocrResult.trackingNumberCandidate);
+      }
+
+      if (ocrResult.dateCandidate) {
+        // 日付候補があれば shipDate にも設定（任意）
+        setShipDate(ocrResult.dateCandidate);
+      }
+    } catch (error) {
+      console.error('[New] OCRエラー:', error);
+    } finally {
+      setIsOcrProcessing(false);
+    }
   };
 
   // 保存
@@ -147,16 +169,34 @@ export default function NewPage() {
 
             {/* 伝票番号 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                伝票番号 <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-sm font-medium text-gray-700">
+                  伝票番号 <span className="text-red-500">*</span>
+                </label>
+                {isOcrProcessing && (
+                  <span className="text-xs text-blue-600">OCR処理中...</span>
+                )}
+                {ocrUsed && !isOcrProcessing && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                    OCR候補
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
+                onChange={(e) => {
+                  setTrackingNumber(e.target.value);
+                  setOcrUsed(false); // 手動編集したらOCRバッジを消す
+                }}
                 placeholder="例: 123-456-789"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               />
+              {ocrUsed && (
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ OCRで自動入力されました。内容を確認してください。
+                </p>
+              )}
             </div>
 
             {/* メモ */}

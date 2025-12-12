@@ -7,6 +7,7 @@
 ## 主な機能
 
 - 📸 **証跡写真の記録**: 伝票番号とシリアル番号を同一写真で撮影・保存
+- 🤖 **OCR自動入力**: 画像から伝票番号を自動抽出（Gemini Vision）
 - 🔍 **検索機能**: 伝票番号検索、日付フィルタ（今日/今週/今月）
 - ✏️ **編集・削除**: 記録の修正や削除が可能
 - 💾 **バックアップ**: JSON/CSV形式でワンタップエクスポート
@@ -27,11 +28,25 @@
 # 依存関係のインストール
 npm install
 
+# 環境変数の設定（OCR機能を使う場合）
+cp .env.local.example .env.local
+# .env.local を編集してGemini API Keyを設定
+
 # 開発サーバーの起動
 npm run dev
 ```
 
 ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
+
+### OCR機能の有効化（任意）
+
+伝票番号の自動入力機能を使用する場合：
+
+1. [Google AI Studio](https://aistudio.google.com/app/apikey) でAPIキーを取得
+2. `.env.local` ファイルを作成
+3. `NEXT_PUBLIC_GEMINI_API_KEY=your_api_key` を設定
+
+**注意**: OCRはオプション機能です。APIキーがなくても手動入力で使用できます。
 
 ## 使い方
 
