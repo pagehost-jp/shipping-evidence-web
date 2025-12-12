@@ -80,7 +80,7 @@ export enum DateFilterPreset {
  * エクスポート用レコード（Blob除外）
  */
 export interface ExportRecord {
-  id: number;
+  id: string;
   createdAt: string;
   shipDate: string;
   trackingNumber: string;

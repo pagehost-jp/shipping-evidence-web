@@ -168,7 +168,7 @@ export default function HomePage() {
   };
 
   // 詳細画面へ遷移
-  const handleRecordClick = (id: number) => {
+  const handleRecordClick = (id: string) => {
     router.push(`/detail/${id}`);
   };
 

@@ -20,14 +20,14 @@ export function exportToJSON(records: ShippingRecord[]): void {
   try {
     console.log('[Export] JSON エクスポート開始:', records.length, '件');
 
-    // Blob除外（imageDataUrlは含める）
+    // Firebase Storage URLを含める
     const exportRecords: ExportRecord[] = records.map((record) => ({
       id: record.id,
       createdAt: record.createdAt,
       shipDate: record.shipDate,
       trackingNumber: record.trackingNumber,
       note: record.note,
-      imageDataUrl: record.imageDataUrl,
+      imageUrl: record.imageUrls?.[0], // 1枚目のURLのみ（エクスポート用簡略化）
     }));
 
     const jsonData = {
@@ -68,7 +68,7 @@ export function exportToCSV(records: ShippingRecord[]): void {
 
     // CSVデータ行
     const rows = records.map((record) => [
-      record.id.toString(),
+      record.id,
       record.createdAt,
       record.shipDate,
       escapeCSV(record.trackingNumber),
