@@ -26,8 +26,27 @@ export class ShippingEvidenceDB extends Dexie {
     });
 
     // バージョン2：クラウド同期フィールド追加
-    this.version(2).stores({
-      records: '++id, createdAt, shipDate, trackingNumber, note, syncStatus',
+    // 注: syncStatusはインデックス不要（検索に使わない）
+    this.version(2)
+      .stores({
+        records: '++id, createdAt, shipDate, trackingNumber, note',
+      })
+      .upgrade((tx) => {
+        // 既存データにsyncStatusフィールドを追加
+        return tx
+          .table('records')
+          .toCollection()
+          .modify((record) => {
+            // syncStatusがない場合はpendingに設定
+            if (!record.syncStatus) {
+              record.syncStatus = 'pending';
+            }
+          });
+      });
+
+    // バージョン3：エラー修正のための再マイグレーション
+    this.version(3).stores({
+      records: '++id, createdAt, shipDate, trackingNumber, note',
     });
   }
 }
