@@ -338,7 +338,7 @@ export default function NewPage() {
                 type="date"
                 value={shipDate}
                 onChange={(e) => setShipDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               />
             </div>
 
@@ -367,7 +367,7 @@ export default function NewPage() {
                   setOcrUsed(false); // 手動編集したらOCRバッジを消す
                 }}
                 placeholder="例: 123-456-789"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               />
               {ocrUsed && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -386,7 +386,7 @@ export default function NewPage() {
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="例: レンジ、顧客名など"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               />
             </div>
           </div>
