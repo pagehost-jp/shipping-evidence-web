@@ -35,39 +35,35 @@ export default function HomePage() {
 
   // 初回：Googleログイン
   useEffect(() => {
-    const checkAuth = async () => {
-      if (!isFirebaseConfigured()) {
-        alert(
-          'Firebaseが設定されていません。\n' +
-          '.env.localファイルでFirebase環境変数を設定してください。'
-        );
-        setIsAuthChecking(false);
-        return;
+    if (!isFirebaseConfigured()) {
+      alert(
+        'Firebaseが設定されていません。\n' +
+        '.env.localファイルでFirebase環境変数を設定してください。'
+      );
+      setIsAuthChecking(false);
+      return;
+    }
+
+    // ログイン状態を監視
+    const unsubscribe = onAuthStateChange(async (user) => {
+      if (!user) {
+        // 未ログイン → Googleログイン実行
+        console.log('[Home] Googleログイン開始...');
+        const isAuthenticated = await signInWithGoogle();
+        if (!isAuthenticated) {
+          alert('Googleログインに失敗しました。\nアプリを使用するにはログインが必要です。');
+          setIsAuthChecking(false);
+          return;
+        }
       }
 
-      // ログイン状態を監視
-      const unsubscribe = onAuthStateChange(async (user) => {
-        if (!user) {
-          // 未ログイン → Googleログイン実行
-          console.log('[Home] Googleログイン開始...');
-          const isAuthenticated = await signInWithGoogle();
-          if (!isAuthenticated) {
-            alert('Googleログインに失敗しました。\nアプリを使用するにはログインが必要です。');
-            setIsAuthChecking(false);
-            return;
-          }
-        }
+      // ログイン成功 → レコード読み込み
+      console.log('[Home] ログイン済み:', user?.email);
+      setIsAuthChecking(false);
+      loadRecords();
+    });
 
-        // ログイン成功 → レコード読み込み
-        console.log('[Home] ログイン済み:', user?.email);
-        setIsAuthChecking(false);
-        loadRecords();
-      });
-
-      return () => unsubscribe();
-    };
-
-    checkAuth();
+    return () => unsubscribe();
   }, []);
 
   const loadRecords = async () => {
