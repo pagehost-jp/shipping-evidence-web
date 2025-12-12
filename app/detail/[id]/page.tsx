@@ -16,20 +16,17 @@ import {
   getRecordById,
   updateRecord,
   deleteRecord,
-} from '@/lib/database';
+} from '@/lib/firestore';
 import { ShippingRecord } from '@/lib/types';
-import { uploadImageToStorage } from '@/lib/storage';
-import { isFirebaseConfigured } from '@/lib/firebase';
 
 export default function DetailPage() {
   const router = useRouter();
   const params = useParams();
-  const id = Number(params.id);
+  const id = params.id as string;
 
   const [record, setRecord] = useState<ShippingRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
 
   // 編集用state
   const [shipDate, setShipDate] = useState('');
@@ -123,64 +120,6 @@ export default function DetailPage() {
     }
   };
 
-  // 再アップロード
-  const handleRetryUpload = async () => {
-    if (!record?.imageBlob) {
-      alert('画像データがありません');
-      return;
-    }
-
-    if (!isFirebaseConfigured()) {
-      alert('Firebaseが設定されていません');
-      return;
-    }
-
-    setIsRetrying(true);
-
-    try {
-      console.log('[Detail] 再アップロード開始...');
-
-      // syncStatus: 'uploading' に更新
-      await updateRecord(id, {
-        syncStatus: 'uploading',
-      });
-
-      await loadRecord(); // UI更新
-
-      // Firebase Storageにアップロード
-      const result = await uploadImageToStorage(record.imageBlob as unknown as File);
-
-      if (result.success && result.imageUrl) {
-        // 成功: syncStatus: 'synced' に更新
-        await updateRecord(id, {
-          imageUrl: result.imageUrl,
-          storagePath: result.storagePath,
-          syncStatus: 'synced',
-          syncError: undefined,
-        });
-
-        console.log('[Detail] 再アップロード成功:', result.imageUrl);
-        alert('クラウドに同期しました');
-      } else {
-        // 失敗: syncStatus: 'failed' に更新
-        await updateRecord(id, {
-          syncStatus: 'failed',
-          syncError: result.error || 'Upload failed',
-        });
-
-        console.error('[Detail] 再アップロード失敗:', result.error);
-        alert('同期に失敗しました: ' + result.error);
-      }
-
-      await loadRecord(); // 最新状態を再読み込み
-    } catch (error: any) {
-      console.error('[Detail] 再アップロードエラー:', error);
-      alert('エラーが発生しました: ' + error.message);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -220,61 +159,10 @@ export default function DetailPage() {
         </div>
 
         {/* 画像表示 */}
-        {(record.imageUrl || record.imageDataUrl) && (
+        {record.imageUrl && (
           <div className="bg-white rounded-lg shadow p-4 mb-6">
-            {/* 同期ステータス表示 */}
-            {record.syncStatus && (
-              <div className="mb-3 flex items-center gap-2">
-                {record.syncStatus === 'pending' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                    クラウド未同期
-                  </span>
-                )}
-                {record.syncStatus === 'uploading' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 animate-pulse">
-                    同期中...
-                  </span>
-                )}
-                {record.syncStatus === 'synced' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                    クラウド同期済
-                  </span>
-                )}
-                {record.syncStatus === 'failed' && (
-                  <>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
-                      同期失敗
-                    </span>
-                    {record.imageBlob && (
-                      <button
-                        onClick={handleRetryUpload}
-                        disabled={isRetrying}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                      >
-                        {isRetrying ? '再試行中...' : '再アップロード'}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* 同期待ちの場合も再アップロードボタン表示 */}
-            {record.syncStatus === 'pending' && record.imageBlob && (
-              <div className="mb-3">
-                <button
-                  onClick={handleRetryUpload}
-                  disabled={isRetrying}
-                  className="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isRetrying ? '同期中...' : '今すぐ同期する'}
-                </button>
-              </div>
-            )}
-
-            {/* 画像表示（クラウド優先、ローカルフォールバック） */}
             <img
-              src={record.imageUrl || record.imageDataUrl}
+              src={record.imageUrl}
               alt="証跡写真"
               className="w-full h-auto rounded"
             />

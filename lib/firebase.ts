@@ -10,6 +10,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getAuth, Auth, signInAnonymously } from 'firebase/auth';
+import { getFirestore as getFirestoreSDK, Firestore } from 'firebase/firestore';
 
 // ────────────────────────────
 // Firebase設定（環境変数から読み込み）
@@ -31,6 +32,7 @@ const firebaseConfig = {
 let app: FirebaseApp | null = null;
 let storage: FirebaseStorage | null = null;
 let auth: Auth | null = null;
+let firestore: Firestore | null = null;
 
 /**
  * Firebaseが設定されているか確認
@@ -57,11 +59,13 @@ export function initializeFirebase() {
     app = initializeApp(firebaseConfig);
     storage = getStorage(app);
     auth = getAuth(app);
+    firestore = getFirestoreSDK(app);
     console.log('[Firebase] 初期化成功');
   } else {
     app = getApps()[0];
     storage = getStorage(app);
     auth = getAuth(app);
+    firestore = getFirestoreSDK(app);
   }
 }
 
@@ -86,6 +90,16 @@ export function getFirebaseAuth(): Auth | null {
 }
 
 /**
+ * Firestore取得
+ */
+export function getFirestore(): Firestore | null {
+  if (!firestore) {
+    initializeFirebase();
+  }
+  return firestore;
+}
+
+/**
  * 匿名認証（必要に応じて）
  */
 export async function signInAnonymouslyIfNeeded(): Promise<boolean> {
@@ -102,10 +116,18 @@ export async function signInAnonymouslyIfNeeded(): Promise<boolean> {
 
     // 匿名サインイン
     await signInAnonymously(authInstance);
-    console.log('[Firebase] 匿名認証成功');
+    console.log('[Firebase] 匿名認証成功:', authInstance.currentUser?.uid);
     return true;
   } catch (error) {
     console.error('[Firebase] 匿名認証エラー:', error);
     return false;
   }
+}
+
+/**
+ * 現在のユーザーUID取得
+ */
+export function getCurrentUserId(): string | null {
+  const authInstance = getFirebaseAuth();
+  return authInstance?.currentUser?.uid || null;
 }

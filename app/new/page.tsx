@@ -11,10 +11,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createRecord, updateRecord } from '@/lib/database';
+import { createRecord } from '@/lib/firestore';
 import { performLocalOCR } from '@/lib/localOcr';
 import { uploadImageToStorage } from '@/lib/storage';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import {
+  isFirebaseConfigured,
+  signInAnonymouslyIfNeeded,
+  getCurrentUserId,
+} from '@/lib/firebase';
 
 export default function NewPage() {
   const router = useRouter();
@@ -110,7 +114,7 @@ export default function NewPage() {
     await processImageFile(file);
   };
 
-  // 保存（Local-first + バックグラウンド同期）
+  // 保存（Cloud-first）
   const handleSave = async () => {
     if (!imageFile) {
       alert('画像を選択してください');
@@ -127,106 +131,62 @@ export default function NewPage() {
       return;
     }
 
+    // Firebase設定チェック
+    if (!isFirebaseConfigured()) {
+      alert(
+        'Firebaseが設定されていません。\n' +
+        '.env.localファイルでFirebase環境変数を設定してください。'
+      );
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      // Step 1: まずローカルに保存（必ず成功）
-      const imageBlob = imageFile;
-      const imageDataUrl = imagePreview;
+      // Step 1: 匿名認証
+      console.log('[New] 匿名認証開始...');
+      const isAuthenticated = await signInAnonymouslyIfNeeded();
+      if (!isAuthenticated) {
+        throw new Error('認証に失敗しました');
+      }
 
-      console.log('[New] ローカルに保存開始...');
+      const userId = getCurrentUserId();
+      if (!userId) {
+        throw new Error('ユーザーIDを取得できませんでした');
+      }
 
+      console.log('[New] 認証成功:', userId);
+
+      // Step 2: Storageにアップロード
+      console.log('[New] 画像アップロード開始...');
+      const uploadResult = await uploadImageToStorage(imageFile);
+
+      if (!uploadResult.success || !uploadResult.imageUrl) {
+        throw new Error(uploadResult.error || '画像のアップロードに失敗しました');
+      }
+
+      console.log('[New] 画像アップロード成功:', uploadResult.imageUrl);
+
+      // Step 3: Firestoreに保存
+      console.log('[New] Firestoreに保存開始...');
       const recordId = await createRecord({
         shipDate: shipDate.trim(),
         trackingNumber: trackingNumber.trim(),
         note: note.trim(),
-        imageBlob,
-        imageDataUrl,
-        syncStatus: 'pending', // 未同期
+        imageUrl: uploadResult.imageUrl,
+        storagePath: uploadResult.storagePath!,
+        createdBy: userId,
       });
 
-      console.log('[New] ローカル保存成功:', recordId);
+      console.log('[New] Firestore保存成功:', recordId);
 
-      // Step 2: バックグラウンドでクラウドへアップロード
-      uploadImageInBackground(recordId, imageFile);
-
-      alert('保存しました（クラウドに同期中...）');
+      alert('保存しました');
       router.push('/');
     } catch (error: any) {
       console.error('[New] 保存エラー:', error);
-
-      // IndexedDB ConstraintError の場合
-      if (error.name === 'ConstraintError') {
-        const shouldReset = window.confirm(
-          'データベースエラーが発生しました。\n' +
-          'データベースをリセットして再試行しますか？\n\n' +
-          '※ 既存のデータは削除されます'
-        );
-
-        if (shouldReset) {
-          try {
-            // IndexedDBを削除して再起動
-            await indexedDB.deleteDatabase('ShippingEvidenceDB');
-            alert('データベースをリセットしました。ページをリロードします。');
-            window.location.reload();
-          } catch (resetError) {
-            console.error('[New] リセットエラー:', resetError);
-            alert('リセットに失敗しました。手動でリロードしてください。');
-          }
-        }
-      } else {
-        alert(`保存に失敗しました: ${error.message || '不明なエラー'}`);
-      }
+      alert(`保存に失敗しました: ${error.message || '不明なエラー'}\n\n再試行してください。`);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  // バックグラウンドでクラウドへアップロード
-  const uploadImageInBackground = async (recordId: number, file: File) => {
-    // Firebaseが設定されていない場合はスキップ
-    if (!isFirebaseConfigured()) {
-      console.log('[New] Firebase未設定のためアップロードスキップ');
-      return;
-    }
-
-    try {
-      console.log('[New] クラウドアップロード開始...');
-
-      // syncStatus: 'uploading' に更新
-      await updateRecord(recordId, {
-        syncStatus: 'uploading',
-      });
-
-      // Firebase Storageにアップロード
-      const result = await uploadImageToStorage(file);
-
-      if (result.success && result.imageUrl) {
-        // 成功: syncStatus: 'synced' に更新
-        await updateRecord(recordId, {
-          imageUrl: result.imageUrl,
-          storagePath: result.storagePath,
-          syncStatus: 'synced',
-        });
-
-        console.log('[New] クラウド同期成功:', result.imageUrl);
-      } else {
-        // 失敗: syncStatus: 'failed' に更新
-        await updateRecord(recordId, {
-          syncStatus: 'failed',
-          syncError: result.error || 'Upload failed',
-        });
-
-        console.error('[New] クラウド同期失敗:', result.error);
-      }
-    } catch (error: any) {
-      // エラー: syncStatus: 'failed' に更新
-      await updateRecord(recordId, {
-        syncStatus: 'failed',
-        syncError: error.message || 'Unknown error',
-      });
-
-      console.error('[New] クラウド同期エラー:', error);
     }
   };
 

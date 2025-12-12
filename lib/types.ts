@@ -12,20 +12,17 @@
 export type SyncStatus = 'pending' | 'uploading' | 'synced' | 'failed';
 
 /**
- * 発送記録レコード
+ * 発送記録レコード（Cloud-first）
  */
 export interface ShippingRecord {
-  id: number;                  // 自動採番ID
+  id: string;                 // Firestore Document ID
   createdAt: string;          // 保存日時（ISO 8601形式）
+  createdBy: string;          // 作成者（匿名認証UID）
   shipDate: string;           // 発送日（YYYY-MM-DD形式）
   trackingNumber: string;     // 伝票番号（必須）
   note?: string;              // 任意メモ
-  imageBlob?: Blob;           // 画像Blob（IndexedDB保存用・Local-first）
-  imageDataUrl?: string;      // 画像Data URL（表示用・フォールバック）
-  imageUrl?: string;          // 画像URL（Firebase Storage・クラウド同期後）
-  storagePath?: string;       // Storage保存パス（削除時に使用）
-  syncStatus?: SyncStatus;    // 同期ステータス（pending/uploading/synced/failed）
-  syncError?: string;         // 同期エラーメッセージ
+  imageUrl: string;           // 画像URL（Firebase Storage・必須）
+  storagePath: string;        // Storage保存パス（削除時に使用）
 }
 
 /**
@@ -35,12 +32,9 @@ export interface NewShippingRecord {
   shipDate: string;
   trackingNumber: string;
   note?: string;
-  imageBlob?: Blob;
-  imageDataUrl?: string;
-  imageUrl?: string;
-  storagePath?: string;
-  syncStatus?: SyncStatus;
-  syncError?: string;
+  imageUrl: string;           // 必須
+  storagePath: string;        // 必須
+  createdBy: string;          // 必須
 }
 
 // ────────────────────────────

@@ -12,11 +12,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  getAllRecords,
-  searchRecords,
-  getDateRangeFromPreset,
-} from '@/lib/database';
+import { getAllRecords, searchRecords } from '@/lib/firestore';
 import { ShippingRecord } from '@/lib/types';
 
 export default function HomePage() {
@@ -54,7 +50,7 @@ export default function HomePage() {
 
       let filter: any = {};
 
-      // 伝票番号検索
+      // 伝票番号検索（完全一致）
       if (searchQuery.trim()) {
         filter.trackingNumber = searchQuery.trim();
       }
@@ -81,6 +77,42 @@ export default function HomePage() {
       setIsLoading(false);
     }
   };
+
+  // 日付範囲取得（ヘルパー関数）
+  function getDateRangeFromPreset(preset: string): {
+    dateFrom: string;
+    dateTo: string;
+  } {
+    const today = new Date();
+    let dateFrom = '';
+    let dateTo = formatDate(today);
+
+    switch (preset) {
+      case 'TODAY':
+        dateFrom = formatDate(today);
+        break;
+      case 'THIS_WEEK': {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        dateFrom = formatDate(weekStart);
+        break;
+      }
+      case 'THIS_MONTH': {
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        dateFrom = formatDate(monthStart);
+        break;
+      }
+    }
+
+    return { dateFrom, dateTo };
+  }
+
+  function formatDate(date: Date): string {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   // リセット
   const handleReset = () => {
@@ -183,10 +215,10 @@ export default function HomePage() {
               >
                 <div className="flex items-start gap-4">
                   {/* サムネイル */}
-                  {record.imageDataUrl && (
+                  {record.imageUrl && (
                     <div className="flex-shrink-0">
                       <img
-                        src={record.imageDataUrl}
+                        src={record.imageUrl}
                         alt="証跡写真"
                         className="w-20 h-20 object-cover rounded"
                       />
@@ -199,28 +231,6 @@ export default function HomePage() {
                       <span className="text-lg font-bold text-gray-900">
                         {record.trackingNumber}
                       </span>
-
-                      {/* 同期ステータスバッジ */}
-                      {record.syncStatus === 'pending' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                          未同期
-                        </span>
-                      )}
-                      {record.syncStatus === 'uploading' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-600">
-                          同期中
-                        </span>
-                      )}
-                      {record.syncStatus === 'synced' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-600">
-                          同期済
-                        </span>
-                      )}
-                      {record.syncStatus === 'failed' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">
-                          失敗
-                        </span>
-                      )}
                     </div>
 
                     <div className="text-sm text-gray-600 space-y-1">
