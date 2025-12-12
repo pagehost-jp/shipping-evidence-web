@@ -199,6 +199,28 @@ export default function HomePage() {
                       <span className="text-lg font-bold text-gray-900">
                         {record.trackingNumber}
                       </span>
+
+                      {/* 同期ステータスバッジ */}
+                      {record.syncStatus === 'pending' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                          未同期
+                        </span>
+                      )}
+                      {record.syncStatus === 'uploading' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-600">
+                          同期中
+                        </span>
+                      )}
+                      {record.syncStatus === 'synced' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-600">
+                          同期済
+                        </span>
+                      )}
+                      {record.syncStatus === 'failed' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">
+                          失敗
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-sm text-gray-600 space-y-1">
