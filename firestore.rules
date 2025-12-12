@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // テスト用ルール（まず動かす）
+    // ⚠️ 運用前に必ず締める
+    match /shippingRecords/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
+
+// 運用ルール（後で切り替え）
+// match /shippingRecords/{docId} {
+//   // 読み取り: 全員可能（外注が見る）
+//   allow read: if true;
+//
+//   // 書き込み: 認証済みユーザーのみ
+//   allow create: if request.auth != null;
+//   allow update, delete: if request.auth != null
+//     && request.auth.uid == resource.data.createdBy;
+// }
