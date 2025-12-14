@@ -376,68 +376,69 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 新規作成ボタン */}
+        {/* 新規作成 + 選択削除ボタン */}
         <div className="mb-6">
-          <button
-            onClick={() => isLoggedIn && router.push('/new')}
-            disabled={!isLoggedIn}
-            className={`w-full py-3 px-4 font-bold rounded-md ${
-              isLoggedIn
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {isLoggedIn ? '＋ 新規作成' : '🔒 ログインが必要です'}
-          </button>
-        </div>
-
-        {/* 選択削除ボタン */}
-        {isLoggedIn && (
-          <div className="mb-6">
-            {!isSelectionMode ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => isLoggedIn && router.push('/new')}
+              disabled={!isLoggedIn}
+              className={`flex-[8] py-3 px-4 font-bold rounded-md ${
+                isLoggedIn
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {isLoggedIn ? '＋ 新規作成' : '🔒 ログインが必要です'}
+            </button>
+            {isLoggedIn && !isSelectionMode && (
               <button
                 onClick={toggleSelectionMode}
-                className="w-full py-2 px-4 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700"
+                className="flex-[2] py-3 px-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 text-sm"
               >
-                選択削除モード
+                選択
               </button>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <button
-                    onClick={selectAll}
-                    className="flex-1 py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
-                  >
-                    全選択 ({records.length}件)
-                  </button>
-                  <button
-                    onClick={deselectAll}
-                    className="flex-1 py-2 px-4 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700"
-                  >
-                    全解除
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={selectedIds.size === 0}
-                    className={`flex-1 py-2 px-4 font-semibold rounded-md ${
-                      selectedIds.size > 0
-                        ? 'bg-red-600 text-white hover:bg-red-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    削除 ({selectedIds.size}件)
-                  </button>
-                  <button
-                    onClick={toggleSelectionMode}
-                    className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
             )}
+          </div>
+        </div>
+
+        {/* 選択削除操作ボタン */}
+        {isLoggedIn && isSelectionMode && (
+          <div className="mb-6">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={selectAll}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
+                >
+                  全選択 ({records.length}件)
+                </button>
+                <button
+                  onClick={deselectAll}
+                  className="flex-1 py-2 px-4 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700"
+                >
+                  全解除
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={selectedIds.size === 0}
+                  className={`flex-1 py-2 px-4 font-semibold rounded-md ${
+                    selectedIds.size > 0
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  削除 ({selectedIds.size}件)
+                </button>
+                <button
+                  onClick={toggleSelectionMode}
+                  className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
