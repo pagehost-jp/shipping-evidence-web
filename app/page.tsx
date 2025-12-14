@@ -12,7 +12,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAllRecords, searchRecords } from '@/lib/firestore';
+import { getAllRecords, searchRecords, deleteRecord } from '@/lib/firestore';
+import { deleteImage } from '@/lib/storage';
 import { ShippingRecord } from '@/lib/types';
 import {
   isFirebaseConfigured,
@@ -34,6 +35,10 @@ export default function HomePage() {
   const [datePreset, setDatePreset] = useState<string>('ALL');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
+
+  // 選択削除
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // ログイン状態監視（自動ログインなし）
   useEffect(() => {
@@ -155,9 +160,83 @@ export default function HomePage() {
     loadRecords();
   };
 
+  // 選択モード切り替え
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedIds(new Set());
+  };
+
+  // 選択切り替え
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  // 全選択
+  const selectAll = () => {
+    setSelectedIds(new Set(records.map((r) => r.id)));
+  };
+
+  // 全解除
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // 選択削除
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) {
+      alert('削除するレコードを選択してください');
+      return;
+    }
+
+    if (!confirm(`${selectedIds.size}件のレコードを削除しますか？`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // 画像とレコードを削除
+      for (const id of selectedIds) {
+        const record = records.find((r) => r.id === id);
+        if (record) {
+          // 画像削除
+          for (const path of record.storagePaths || []) {
+            try {
+              await deleteImage(path);
+            } catch (error) {
+              console.error('画像削除エラー:', error);
+            }
+          }
+          // レコード削除
+          await deleteRecord(id);
+        }
+      }
+
+      alert(`${selectedIds.size}件のレコードを削除しました`);
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+      await loadRecords();
+    } catch (error) {
+      console.error('一括削除エラー:', error);
+      alert('削除に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 詳細画面へ遷移
   const handleRecordClick = (id: string) => {
-    router.push(`/detail/${id}`);
+    if (isSelectionMode) {
+      toggleSelection(id);
+    } else {
+      router.push(`/detail/${id}`);
+    }
   };
 
   // ログイン確認中
@@ -312,6 +391,56 @@ export default function HomePage() {
           </button>
         </div>
 
+        {/* 選択削除ボタン */}
+        {isLoggedIn && (
+          <div className="mb-6">
+            {!isSelectionMode ? (
+              <button
+                onClick={toggleSelectionMode}
+                className="w-full py-2 px-4 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700"
+              >
+                選択削除モード
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAll}
+                    className="flex-1 py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
+                  >
+                    全選択 ({records.length}件)
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className="flex-1 py-2 px-4 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700"
+                  >
+                    全解除
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={selectedIds.size === 0}
+                    className={`flex-1 py-2 px-4 font-semibold rounded-md ${
+                      selectedIds.size > 0
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    削除 ({selectedIds.size}件)
+                  </button>
+                  <button
+                    onClick={toggleSelectionMode}
+                    className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* レコード一覧 */}
         <div className="space-y-3">
           {isLoading ? (
@@ -325,9 +454,26 @@ export default function HomePage() {
               <div
                 key={record.id}
                 onClick={() => handleRecordClick(record.id)}
-                className="bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50 transition"
+                className={`bg-white rounded-lg shadow p-4 cursor-pointer transition ${
+                  isSelectionMode && selectedIds.has(record.id)
+                    ? 'ring-2 ring-blue-500 bg-blue-50'
+                    : 'hover:bg-gray-50'
+                }`}
               >
                 <div className="flex items-start gap-4">
+                  {/* チェックボックス（選択モード時） */}
+                  {isSelectionMode && (
+                    <div className="flex-shrink-0 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(record.id)}
+                        onChange={() => toggleSelection(record.id)}
+                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+
                   {/* サムネイル */}
                   {record.imageUrls && record.imageUrls.length > 0 && (
                     <div className="flex-shrink-0 relative">
@@ -365,22 +511,24 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* 矢印アイコン */}
-                  <div className="flex-shrink-0 text-gray-400">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
+                  {/* 矢印アイコン（通常モード時） */}
+                  {!isSelectionMode && (
+                    <div className="flex-shrink-0 text-gray-400">
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
