@@ -13,7 +13,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAllRecords, searchRecords, deleteRecord } from '@/lib/firestore';
-import { deleteImage } from '@/lib/storage';
+import { deleteImageFromStorage } from '@/lib/storage';
 import { ShippingRecord } from '@/lib/types';
 import {
   isFirebaseConfigured,
@@ -208,7 +208,7 @@ export default function HomePage() {
           // 画像削除
           for (const path of record.storagePaths || []) {
             try {
-              await deleteImage(path);
+              await deleteImageFromStorage(path);
             } catch (error) {
               console.error('画像削除エラー:', error);
             }
